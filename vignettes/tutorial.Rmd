@@ -1,0 +1,110 @@
+---
+title: "tutorial"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{tutorial}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(simplelm)
+```
+
+## Fit a model with one predictor
+
+Add horsepower (`hp`) to the model along with vehicle weight (`wt`).
+The coefficient for each predictor estimates the change in fuel economy
+associated with a one-unit increase in that predictor, holding the other
+predictor fixed.
+
+```{r multiple-predictor}
+multi_formula <- mpg ~ wt + hp + qsec + am
+fit_multiple <- matrix_lm(multi_formula, data = mtcars)
+fit_multiple$coefficients
+```
+
+## Reconstruct the design matrix
+
+The design matrix contains an intercept column and one column for each
+predictor. Multiplying the returned `Q` and `R` matrices reconstructs
+the design matrix. The comparison below should return `TRUE`.
+
+```{r reconstruct-design}
+X <- model.matrix(multi_formula, data = mtcars)
+X_reconstructed <- fit_multiple$Q %*% fit_multiple$R
+
+# Check dimensions first, then compare the numerical entries.
+stopifnot(identical(dim(X), dim(X_reconstructed)))
+all.equal(X, X_reconstructed, check.attributes = FALSE)
+```
+
+## Compare observed and fitted fuel economy
+
+Multiply the reconstructed design matrix by the estimated coefficients
+to calculate fitted MPG for the cars in `mtcars`. Each point represents
+one car. Points on the dashed line have equal observed and fitted MPG.
+
+```{r observed-vs-fitted, fig.width=6, fig.height=5, fig.cap="Observed and fitted fuel economy for the cars in mtcars."}
+observed_mpg <- mtcars$mpg
+fitted_mpg <- drop(X_reconstructed %*% fit_multiple$coefficients)
+mpg_range <- range(observed_mpg, fitted_mpg)
+
+plot(
+  observed_mpg, fitted_mpg,
+  xlim = mpg_range, ylim = mpg_range, asp = 1,
+  xlab = "Observed fuel economy (MPG)",
+  ylab = "Fitted fuel economy (MPG)",
+  pch = 19, col = "steelblue"
+)
+abline(a = 0, b = 1, lty = 2, col = "gray40")
+```
+
+## Comparison with R's lm()
+
+```{r compare results with stats:lm package}
+base_fit <- stats::lm(multi_formula, data = mtcars)
+
+all.equal(fit_multiple$coefficients, coef(base_fit))
+all.equal(fitted_mpg, unname(fitted(base_fit)))
+
+```
+
+```{r benchmark}
+set.seed(625)
+
+time_fit <- function(fit_model, repetitions = 30L) {
+  elapsed <- replicate(5L, {
+    system.time({
+      for (i in seq_len(repetitions)) fit_model()
+    })[["elapsed"]]
+  })
+
+  1000 * median(elapsed) / repetitions
+}
+
+compare_speed <- function(n) {
+  dat <- data.frame(x1 = rnorm(n), x2 = rnorm(n), x3 = rnorm(n))
+  dat$y <- 1 + 2 * dat$x1 - dat$x2 + 0.5 * dat$x3 + rnorm(n)
+  form <- y ~ x1 + x2 + x3
+
+  data.frame(
+    n = n,
+    matrix_lm_ms = time_fit(function() matrix_lm(form, data = dat)),
+    lm_ms = time_fit(function() stats::lm(form, data = dat))
+  )
+}
+
+rbind(compare_speed(1000), compare_speed(10000))
+
+```
+On the simulated full-rank datasets, matrix_lm() and stats::lm() produced coefficient estimates that agreed within numerical tolerance. stats::lm() took less time per fit at both sample sizes. matrix_lm() returns Q and R explicitly so users can inspect how the least squares estimates are computed.
+
+
