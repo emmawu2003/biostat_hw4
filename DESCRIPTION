@@ -1,13 +1,12 @@
-Package: k-mean
-Title: K-Means Clustering for Numeric Data
+Package: simplelm
+Title: Ordinary Least Squares Linear Regression
 Version: 0.0.0.9000
-Authors@R: 
-    person("Di", "Wu", , "emmawu@umich.edu", role = c("aut", "cre"))
-Description:  Implements the K-means clustering algorithm to partition
-    numeric observations into a specified number of clusters based on
-    their distance to cluster centers.
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Authors@R:
+    person("Di", "Wu", email = "emmawu@umich.edu", role = c("aut", "cre"))
+Description: Fits ordinary least squares linear regression models with
+    numeric predictors. Returns estimated coefficients, fitted values,
+    and residuals.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
